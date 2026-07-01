@@ -38,11 +38,25 @@ pub async fn run_client(server_pubkey: String) -> anyhow::Result<()> {
 
     let arguments = serde_json::from_value(serde_json::json!({
         "blockhash": "6502a964d34baf3036d3a865d9ba2b48e0e3df0e53c34cd9344803450ab5598e",
-        "verbosity": 2
+        "verbosity": 2,
     }))?;
 
     let result = client
         .call_tool(CallToolRequestParams::new("get_block").with_arguments(arguments))
+        .await?;
+
+    if let Some(content) = result.content.first() {
+        if let rmcp::model::RawContent::Text(text) = &content.raw {
+            println!("Result: {}", text.text);
+        }
+    }
+
+    let arguments = serde_json::from_value(serde_json::json!({
+        "verbosity": 0,
+    }))?;
+
+    let result = client
+        .call_tool(CallToolRequestParams::new("get_raw_mempool").with_arguments(arguments))
         .await?;
 
     if let Some(content) = result.content.first() {

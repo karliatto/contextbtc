@@ -73,6 +73,49 @@ struct GetBlockParams {
     verbosity: Option<u8>,
 }
 
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+struct GetBlockHashParams {
+    /// Block height
+    height: u64,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+struct GetRawMempoolParams {
+    /// If true, return detailed info for each tx; otherwise just an array of txids
+    #[serde(default)]
+    verbose: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+struct GetRawTransactionParams {
+    /// Transaction id (hex)
+    txid: String,
+    /// Verbosity: 0=hex, 1=json, 2=json with fee/prevout details
+    #[serde(default)]
+    verbosity: Option<u8>,
+    /// Optional block hash (hex) the transaction is contained in
+    #[serde(default)]
+    blockhash: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+struct GetBlockHeaderParams {
+    /// Block hash (hex)
+    blockhash: String,
+    /// If true, return decoded JSON; otherwise the raw hex header
+    #[serde(default)]
+    verbose: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+struct GetBlockFilterParams {
+    /// Block hash (hex)
+    blockhash: String,
+    /// Filter type (e.g. "basic")
+    #[serde(default)]
+    filtertype: Option<String>,
+}
+
 #[tool_router]
 impl BitcoinRpcNostrServer {
     #[tool(description = "Get current blockchain state (height, chain, difficulty, ...)")]
@@ -100,6 +143,134 @@ impl BitcoinRpcNostrServer {
         let result = self
             .rpc
             .call("getblock", params)
+            .await
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            result.to_string(),
+        )]))
+    }
+
+    #[tool(description = "Get the height of the most-work fully-validated chain")]
+    async fn get_block_count(&self) -> Result<CallToolResult, ErrorData> {
+        let result = self
+            .rpc
+            .call("getblockcount", json!([]))
+            .await
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            result.to_string(),
+        )]))
+    }
+
+    #[tool(description = "Get the block hash at a given height")]
+    async fn get_block_hash(
+        &self,
+        Parameters(GetBlockHashParams { height }): Parameters<GetBlockHashParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let result = self
+            .rpc
+            .call("getblockhash", json!([height]))
+            .await
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            result.to_string(),
+        )]))
+    }
+
+    #[tool(description = "Get the transaction ids in the mempool (or detailed info when verbose)")]
+    async fn get_raw_mempool(
+        &self,
+        Parameters(GetRawMempoolParams { verbose }): Parameters<GetRawMempoolParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let result = self
+            .rpc
+            .call("getrawmempool", json!([verbose.unwrap_or(false)]))
+            .await
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            result.to_string(),
+        )]))
+    }
+
+    #[tool(description = "Get a raw transaction by txid")]
+    async fn get_raw_transaction(
+        &self,
+        Parameters(GetRawTransactionParams {
+            txid,
+            verbosity,
+            blockhash,
+        }): Parameters<GetRawTransactionParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let mut p = vec![json!(txid), json!(verbosity.unwrap_or(1))];
+        if let Some(bh) = blockhash {
+            p.push(json!(bh));
+        }
+        let params = Value::Array(p);
+
+        let result = self
+            .rpc
+            .call("getrawtransaction", params)
+            .await
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            result.to_string(),
+        )]))
+    }
+
+    #[tool(description = "Get a block by hash (decoded)")]
+    async fn get_block_info(
+        &self,
+        Parameters(GetBlockParams {
+            blockhash,
+            verbosity,
+        }): Parameters<GetBlockParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params = json!([blockhash, verbosity.unwrap_or(1)]);
+        let result = self
+            .rpc
+            .call("getblock", params)
+            .await
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            result.to_string(),
+        )]))
+    }
+
+    #[tool(description = "Get a block header by hash (decoded JSON or raw hex)")]
+    async fn get_block_header_info(
+        &self,
+        Parameters(GetBlockHeaderParams { blockhash, verbose }): Parameters<GetBlockHeaderParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params = json!([blockhash, verbose.unwrap_or(true)]);
+        let result = self
+            .rpc
+            .call("getblockheader", params)
+            .await
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            result.to_string(),
+        )]))
+    }
+
+    #[tool(description = "Get the BIP157 content filter for a block by hash")]
+    async fn get_block_filter(
+        &self,
+        Parameters(GetBlockFilterParams {
+            blockhash,
+            filtertype,
+        }): Parameters<GetBlockFilterParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params = json!([blockhash, filtertype.unwrap_or_else(|| "basic".to_string())]);
+        let result = self
+            .rpc
+            .call("getblockfilter", params)
             .await
             .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
 
