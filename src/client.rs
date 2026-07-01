@@ -26,11 +26,8 @@ pub async fn run_client(server_pubkey: String) -> anyhow::Result<()> {
     let tools = client.list_all_tools().await?;
     println!("Discovered {} tool(s).", tools.len());
 
-    let arguments = serde_json::from_value(serde_json::json!({
-        "message": "Hello from the Rust client!"
-    }))?;
     let result = client
-        .call_tool(CallToolRequestParams::new("echo").with_arguments(arguments))
+        .call_tool(CallToolRequestParams::new("get_blockchain_info"))
         .await?;
 
     if let Some(content) = result.content.first() {
@@ -40,11 +37,12 @@ pub async fn run_client(server_pubkey: String) -> anyhow::Result<()> {
     }
 
     let arguments = serde_json::from_value(serde_json::json!({
-        "a": 1,
-        "b": 4
+        "blockhash": "6502a964d34baf3036d3a865d9ba2b48e0e3df0e53c34cd9344803450ab5598e",
+        "verbosity": 2
     }))?;
+
     let result = client
-        .call_tool(CallToolRequestParams::new("add").with_arguments(arguments))
+        .call_tool(CallToolRequestParams::new("get_block").with_arguments(arguments))
         .await?;
 
     if let Some(content) = result.content.first() {
