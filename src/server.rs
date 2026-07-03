@@ -108,6 +108,12 @@ struct GetBlockHeaderParams {
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+struct GetBlockHeaderRawParams {
+    /// Block hash (hex)
+    blockhash: String,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 struct GetBlockFilterParams {
     /// Block hash (hex)
     blockhash: String,
@@ -259,6 +265,23 @@ impl BitcoinRpcNostrServer {
         )]))
     }
 
+    #[tool(description = "Get the raw hex-encoded block header by hash")]
+    async fn get_block_header(
+        &self,
+        Parameters(GetBlockHeaderRawParams { blockhash }): Parameters<GetBlockHeaderRawParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let params = json!([blockhash, false]);
+        let result = self
+            .rpc
+            .call("getblockheader", params)
+            .await
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(
+            result.to_string(),
+        )]))
+    }
+
     #[tool(description = "Get the BIP157 content filter for a block by hash")]
     async fn get_block_filter(
         &self,
@@ -282,6 +305,24 @@ impl BitcoinRpcNostrServer {
 
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for BitcoinRpcNostrServer {
+    async fn call_tool(
+        &self,
+        request: rmcp::model::CallToolRequestParams,
+        context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let tool_name = request.name.to_string();
+        if !self.tool_router.has_route(&tool_name) {
+            tracing::warn!(tool = %tool_name, "tool not found");
+            return Err(ErrorData::invalid_params(
+                format!("tool not found: {tool_name}"),
+                Some(json!({ "tool": tool_name })),
+            ));
+        }
+
+        let tcc = rmcp::handler::server::tool::ToolCallContext::new(self, request, context);
+        self.tool_router.call(tcc).await
+    }
+
     fn get_info(&self) -> rmcp::model::ServerInfo {
         InitializeResult::new(ServerCapabilities::builder().enable_tools().build())
             .with_protocol_version(ProtocolVersion::LATEST)
@@ -303,7 +344,6 @@ pub async fn run_server() -> anyhow::Result<()> {
         }
     };
     let pubkey = signer.public_key().to_hex();
-    println!("Server starting. Pubkey: {}", pubkey);
 
     let transport = NostrServerTransport::new(
         signer,
