@@ -292,7 +292,16 @@ impl ServerHandler for BitcoinRpcNostrServer {
 }
 
 pub async fn run_server() -> anyhow::Result<()> {
-    let signer = signer::generate();
+    let signer = match std::env::var("NOSTR_SECRET_KEY") {
+        Ok(sk) => signer::from_sk(&sk)?,
+        Err(_) => {
+            eprintln!(
+                "WARNING: NOSTR_SECRET_KEY not set; generating an ephemeral key \
+                 (identity will change on every restart)."
+            );
+            signer::generate()
+        }
+    };
     let pubkey = signer.public_key().to_hex();
     println!("Server starting. Pubkey: {}", pubkey);
 
