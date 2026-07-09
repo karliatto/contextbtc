@@ -354,20 +354,51 @@ impl BitcoinRpcNostrServer {
     }
 }
 
+/// Normalize a tool name for lenient matching: lowercase and drop underscores.
+/// This lets clients call tools using either Bitcoin Core style
+/// (`getblockhash`) or snake_case (`get_block_hash`).
+fn normalize_tool_name(name: &str) -> String {
+    name.chars()
+        .filter(|c| *c != '_')
+        .flat_map(|c| c.to_lowercase())
+        .collect()
+}
+
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for BitcoinRpcNostrServer {
     async fn call_tool(
         &self,
-        request: rmcp::model::CallToolRequestParams,
+        mut request: rmcp::model::CallToolRequestParams,
         context: rmcp::service::RequestContext<rmcp::RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
-        let tool_name = request.name.to_string();
-        if !self.tool_router.has_route(&tool_name) {
-            tracing::warn!(tool = %tool_name, "tool not found");
+        let requested = request.name.to_string();
+
+        // Resolve the requested tool name to a canonical route. Bitcoin Core
+        // style names (`getblockhash`) are canonical, but we also accept
+        // snake_case / mixed-case variants (`get_block_hash`, `getBlockHash`)
+        // by matching on a normalized form.
+        let canonical = if self.tool_router.has_route(&requested) {
+            Some(requested.clone())
+        } else {
+            let wanted = normalize_tool_name(&requested);
+            self.tool_router
+                .map
+                .keys()
+                .find(|name| normalize_tool_name(name) == wanted)
+                .map(|name| name.to_string())
+        };
+
+        let Some(canonical) = canonical else {
+            tracing::warn!(tool = %requested, "tool not found");
             return Err(ErrorData::invalid_params(
-                format!("tool not found: {tool_name}"),
-                Some(json!({ "tool": tool_name })),
+                format!("tool not found: {requested}"),
+                Some(json!({ "tool": requested })),
             ));
+        };
+
+        if canonical != requested {
+            tracing::debug!(requested = %requested, canonical = %canonical, "resolved tool alias");
+            request.name = std::borrow::Cow::Owned(canonical);
         }
 
         let tcc = rmcp::handler::server::tool::ToolCallContext::new(self, request, context);

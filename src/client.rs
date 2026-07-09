@@ -52,7 +52,7 @@ pub async fn run_client(server_pubkey: String) -> anyhow::Result<()> {
     }))?;
 
     let result = client
-        .call_tool(CallToolRequestParams::new("getrawmempool").with_arguments(arguments))
+        .call_tool(CallToolRequestParams::new("get_raw_mempool").with_arguments(arguments))
         .await?;
 
     if let Some(content) = result.content.first() {
