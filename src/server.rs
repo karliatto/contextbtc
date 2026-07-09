@@ -192,7 +192,10 @@ impl BitcoinRpcNostrServer {
         )]))
     }
 
-    #[tool(name = "getblockhash", description = "Get the block hash at a given height")]
+    #[tool(
+        name = "getblockhash",
+        description = "Get the block hash at a given height"
+    )]
     async fn get_block_hash(
         &self,
         Parameters(GetBlockHashParams { height }): Parameters<GetBlockHashParams>,
@@ -227,7 +230,10 @@ impl BitcoinRpcNostrServer {
         )]))
     }
 
-    #[tool(name = "getrawtransaction", description = "Get a raw transaction by txid")]
+    #[tool(
+        name = "getrawtransaction",
+        description = "Get a raw transaction by txid"
+    )]
     async fn get_raw_transaction(
         &self,
         Parameters(GetRawTransactionParams {

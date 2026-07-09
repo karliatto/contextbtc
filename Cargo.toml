@@ -1,5 +1,5 @@
 [package]
-name = "bitcoin-rpc-nostr"
+name = "context-btc-rust"
 version = "0.1.0"
 edition = "2024"
 
