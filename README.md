@@ -17,7 +17,38 @@ Derive the public key (what clients target) from a secret key with:
 nak key public <secret-key-hex>
 ```
 
+## Configuration
+
+The server is configured via environment variables. For local development, copy
+the provided template and fill in your values:
+
+```bash
+cp .env.example .env
+# edit .env
+```
+
+On startup the server automatically loads a `.env` file if present. Real
+environment variables always take precedence over `.env`, and a missing file is
+not an error (useful for systemd/Docker where variables are injected directly).
+`.env` is gitignored, so your secrets are never committed.
+
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `NOSTR_SECRET_KEY` | No | ephemeral | 64-char hex or `nsec...` key. If unset, a temporary key is generated on each start (testing only, not for production). |
+| `BITCOIN_RPC_URL` | No | `http://127.0.0.1:8332` | Bitcoin Core JSON-RPC endpoint. |
+| `BITCOIN_RPC_USER` | Yes | — | JSON-RPC username. |
+| `BITCOIN_RPC_PASSWORD` | Yes | — | JSON-RPC password. |
+| `BITCOIN_RPC_TIMEOUT_SECS` | No | `30` | Overall HTTP request timeout for RPC calls, in seconds. |
+
 ## Running server
+
+With a `.env` file in place:
+
+```bash
+cargo run -- server
+```
+
+Alternatively, set variables inline (these override any `.env` values):
 
 ```bash
 NOSTR_SECRET_KEY=<secret-key-hex> \
@@ -26,8 +57,6 @@ BITCOIN_RPC_USER=myuser \
 BITCOIN_RPC_PASSWORD=mypass \
 cargo run -- server
 ```
-
-`NOSTR_SECRET_KEY` accepts a 64-char hex key or an `nsec...` key. If it is unset, the server generates a temporary key on each start (fine for testing, not for production). Do not commit your secret key.
 
 ## Running client
 

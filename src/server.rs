@@ -18,8 +18,16 @@ pub struct BitcoinRpcNostrServer {
 
 impl BitcoinRpcNostrServer {
     pub fn new() -> Self {
+        let timeout_secs = std::env::var("BITCOIN_RPC_TIMEOUT_SECS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(30);
         let rpc = BitcoinRpc {
-            http: reqwest::Client::new(),
+            http: reqwest::Client::builder()
+                .connect_timeout(std::time::Duration::from_secs(5))
+                .timeout(std::time::Duration::from_secs(timeout_secs))
+                .build()
+                .expect("failed to build HTTP client"),
             url: std::env::var("BITCOIN_RPC_URL")
                 .unwrap_or_else(|_| "http://127.0.0.1:8332".to_string()),
             user: std::env::var("BITCOIN_RPC_USER").unwrap_or_default(),
@@ -370,7 +378,8 @@ impl ServerHandler for BitcoinRpcNostrServer {
         InitializeResult::new(ServerCapabilities::builder().enable_tools().build())
             .with_protocol_version(ProtocolVersion::LATEST)
             .with_server_info(
-                Implementation::new("rust-echo-server", "0.1.0").with_title("Rust Echo Server"),
+                Implementation::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
+                    .with_title("ContextBTC — Bitcoin Core over MCP/Nostr"),
             )
     }
 }
