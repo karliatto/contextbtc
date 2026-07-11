@@ -46,27 +46,120 @@ struct BitcoinRpc {
     password: String,
 }
 
+/// An error from a single RPC attempt, tagged with whether it is worth retrying.
+struct RpcCallError {
+    retryable: bool,
+    source: anyhow::Error,
+}
+
+impl RpcCallError {
+    fn transient(source: anyhow::Error) -> Self {
+        Self {
+            retryable: true,
+            source,
+        }
+    }
+
+    fn permanent(source: anyhow::Error) -> Self {
+        Self {
+            retryable: false,
+            source,
+        }
+    }
+}
+
 impl BitcoinRpc {
+    /// Perform an RPC call, retrying transient failures (connect/timeout errors
+    /// and 5xx/429 responses) with exponential backoff. Permanent failures
+    /// (auth errors, malformed responses, application-level RPC errors) fail
+    /// immediately.
     async fn call(&self, method: &str, params: Value) -> anyhow::Result<Value> {
+        use backon::{ExponentialBuilder, Retryable};
+
+        let policy = ExponentialBuilder::default()
+            .with_max_times(3)
+            .with_jitter();
+
+        (|| async { self.call_once(method, &params).await })
+            .retry(policy)
+            .when(|e: &RpcCallError| e.retryable)
+            .notify(|e: &RpcCallError, dur| {
+                tracing::warn!(
+                    method = %method,
+                    error = %e.source,
+                    retry_in = ?dur,
+                    "bitcoind RPC call failed; retrying"
+                );
+            })
+            .await
+            .map_err(|e| e.source)
+    }
+
+    async fn call_once(&self, method: &str, params: &Value) -> Result<Value, RpcCallError> {
         let body = json!({
             "jsonrpc": "2.0",
-            "id": "bitcoin-rpc-nostr",
+            "id": "context-btc",
             "method": method,
             "params": params,
         });
 
-        let resp: Value = self
+        let resp = self
             .http
             .post(&self.url)
             .basic_auth(&self.user, Some(&self.password))
             .json(&body)
             .send()
-            .await?
-            .json()
-            .await?;
+            .await
+            .map_err(|e| {
+                // Connection and timeout failures are typically transient.
+                let retryable = e.is_timeout() || e.is_connect();
+                RpcCallError {
+                    retryable,
+                    source: e.into(),
+                }
+            })?;
+
+        // Read the status and body once. bitcoind returns non-JSON bodies
+        // (often plain text or HTML) on transport-level errors, so we must not
+        // blindly parse as JSON.
+        let status = resp.status();
+        let text = resp
+            .text()
+            .await
+            .map_err(|e| RpcCallError::transient(e.into()))?;
+
+        if !status.is_success() {
+            let hint = match status {
+                reqwest::StatusCode::UNAUTHORIZED => {
+                    " (check BITCOIN_RPC_USER / BITCOIN_RPC_PASSWORD)"
+                }
+                reqwest::StatusCode::FORBIDDEN => {
+                    " (client not allowed; check bitcoind rpcallowip / rpcbind)"
+                }
+                _ => "",
+            };
+            let snippet: String = text.trim().chars().take(200).collect();
+            // Server errors and rate limiting are transient; 4xx are not.
+            let retryable =
+                status.is_server_error() || status == reqwest::StatusCode::TOO_MANY_REQUESTS;
+            let err = anyhow::anyhow!("bitcoind HTTP {status}{hint}: {snippet}");
+            return Err(RpcCallError {
+                retryable,
+                source: err,
+            });
+        }
+
+        let resp: Value = serde_json::from_str(&text).map_err(|_| {
+            let snippet: String = text.trim().chars().take(200).collect();
+            RpcCallError::permanent(anyhow::anyhow!(
+                "bitcoind returned a non-JSON response: {snippet}"
+            ))
+        })?;
 
         if let Some(err) = resp.get("error").filter(|e| !e.is_null()) {
-            anyhow::bail!("bitcoind RPC error: {err}");
+            return Err(RpcCallError::permanent(anyhow::anyhow!(
+                "bitcoind RPC error: {err}"
+            )));
         }
         Ok(resp.get("result").cloned().unwrap_or(Value::Null))
     }
