@@ -7,8 +7,18 @@ struct BitcoinRpcNostrClient;
 impl ClientHandler for BitcoinRpcNostrClient {}
 
 pub async fn run_client(server_pubkey: String) -> anyhow::Result<()> {
-    let signer = signer::generate();
-    println!("Client starting. Target Server: {}", server_pubkey);
+    let signer = match std::env::var("CLIENT_NOSTR_SECRET_KEY") {
+        Ok(sk) => signer::from_sk(&sk)?,
+        Err(_) => {
+            eprintln!(
+                "WARNING: CLIENT_NOSTR_SECRET_KEY not set; generating an ephemeral key \
+                 (identity will change on every restart)."
+            );
+            signer::generate()
+        }
+    };
+    let client_pubkey = signer.public_key().to_hex();
+    println!("Client starting with public key: {client_pubkey}. Target Server: {}", server_pubkey);
 
     let transport = NostrClientTransport::new(
         signer,

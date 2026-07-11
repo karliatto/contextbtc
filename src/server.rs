@@ -528,11 +528,11 @@ impl ServerHandler for BitcoinRpcNostrServer {
 }
 
 pub async fn run_server() -> anyhow::Result<()> {
-    let signer = match std::env::var("NOSTR_SECRET_KEY") {
+    let signer = match std::env::var("SERVER_NOSTR_SECRET_KEY") {
         Ok(sk) => signer::from_sk(&sk)?,
         Err(_) => {
             eprintln!(
-                "WARNING: NOSTR_SECRET_KEY not set; generating an ephemeral key \
+                "WARNING: SERVER_NOSTR_SECRET_KEY not set; generating an ephemeral key \
                  (identity will change on every restart)."
             );
             signer::generate()
@@ -540,6 +540,15 @@ pub async fn run_server() -> anyhow::Result<()> {
     };
     let pubkey = signer.public_key().to_hex();
     println!("Public key: {pubkey}");
+
+    // Empty `ALLOWED_CLIENT_PUBKEYS` means allow all clients.
+    let allowed: Vec<String> = std::env::var("ALLOWED_CLIENT_PUBKEYS")
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect();
 
     let transport = NostrServerTransport::new(
         signer,
@@ -549,7 +558,8 @@ pub async fn run_server() -> anyhow::Result<()> {
                 // "wss://relay.contextvm.org".to_string(),
                 // "wss://nos.lol".to_string(),
             ])
-            .with_announced_server(false),
+            .with_announced_server(false)
+            .with_allowed_public_keys(allowed),
     )
     .await?;
 

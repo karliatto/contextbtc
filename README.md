@@ -34,7 +34,7 @@ not an error (useful for systemd/Docker where variables are injected directly).
 
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
-| `NOSTR_SECRET_KEY` | No | ephemeral | 64-char hex or `nsec...` key. If unset, a temporary key is generated on each start (testing only, not for production). |
+| `SERVER_NOSTR_SECRET_KEY` | No | ephemeral | 64-char hex or `nsec...` key. If unset, a temporary key is generated on each start (testing only, not for production). |
 | `BITCOIN_RPC_URL` | No | `http://127.0.0.1:8332` | Bitcoin Core JSON-RPC endpoint. |
 | `BITCOIN_RPC_USER` | Yes | — | JSON-RPC username. |
 | `BITCOIN_RPC_PASSWORD` | Yes | — | JSON-RPC password. |
@@ -51,7 +51,7 @@ cargo run -- server
 Alternatively, set variables inline (these override any `.env` values):
 
 ```bash
-NOSTR_SECRET_KEY=<secret-key-hex> \
+SERVER_NOSTR_SECRET_KEY=<secret-key-hex> \
 BITCOIN_RPC_URL=http://127.0.0.1:18443 \
 BITCOIN_RPC_USER=myuser \
 BITCOIN_RPC_PASSWORD=mypass \
@@ -59,6 +59,12 @@ cargo run -- server
 ```
 
 ## Running client
+
+## Client .env
+
+```bash
+CLIENT_NOSTR_SECRET_KEY=
+```
 
 ```bash
 cargo run -- client <server-pub-key-hex>
