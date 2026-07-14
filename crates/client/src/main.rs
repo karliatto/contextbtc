@@ -6,7 +6,26 @@ use rmcp::{ClientHandler, ServiceExt, model::CallToolRequestParams};
 struct BitcoinRpcNostrClient;
 impl ClientHandler for BitcoinRpcNostrClient {}
 
-pub async fn run_client(server_pubkey: String) -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Load variables from a local `.env` file if present. Real environment
+    // variables always take precedence and a missing file is not an error.
+    dotenvy::dotenv().ok();
+
+    tracing_subscriber::fmt::init();
+
+    let server_pubkey = match std::env::args().nth(1) {
+        Some(pubkey) => pubkey,
+        None => {
+            eprintln!("Usage: context-btc-client <server_pubkey>");
+            std::process::exit(1);
+        }
+    };
+
+    run(server_pubkey).await
+}
+
+async fn run(server_pubkey: String) -> anyhow::Result<()> {
     let signer = match std::env::var("CLIENT_NOSTR_SECRET_KEY") {
         Ok(sk) => signer::from_sk(&sk)?,
         Err(_) => {
@@ -18,7 +37,7 @@ pub async fn run_client(server_pubkey: String) -> anyhow::Result<()> {
         }
     };
     let client_pubkey = signer.public_key().to_hex();
-    println!("Client starting with public key: {client_pubkey}. Target Server: {}", server_pubkey);
+    println!("Client starting with public key: {client_pubkey}. Target Server: {server_pubkey}");
 
     let transport = NostrClientTransport::new(
         signer,

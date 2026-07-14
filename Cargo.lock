@@ -286,7 +286,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "context-btc-rust"
+name = "context-btc-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "contextvm-sdk",
+ "dotenvy",
+ "rmcp",
+ "serde_json",
+ "tokio",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "context-btc-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",

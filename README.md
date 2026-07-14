@@ -40,12 +40,19 @@ not an error (useful for systemd/Docker where variables are injected directly).
 | `BITCOIN_RPC_PASSWORD` | Yes | — | JSON-RPC password. |
 | `BITCOIN_RPC_TIMEOUT_SECS` | No | `30` | Overall HTTP request timeout for RPC calls, in seconds. |
 
+## Project layout
+
+This is a Cargo workspace with two binary crates:
+
+- `crates/server` — the ContextBTC MCP server (`context-btc-server`).
+- `crates/client` — an example client (`context-btc-client`).
+
 ## Running server
 
 With a `.env` file in place:
 
 ```bash
-cargo run -- server
+cargo run -p context-btc-server
 ```
 
 Alternatively, set variables inline (these override any `.env` values):
@@ -55,7 +62,7 @@ SERVER_NOSTR_SECRET_KEY=<secret-key-hex> \
 BITCOIN_RPC_URL=http://127.0.0.1:18443 \
 BITCOIN_RPC_USER=myuser \
 BITCOIN_RPC_PASSWORD=mypass \
-cargo run -- server
+cargo run -p context-btc-server
 ```
 
 ## Running client
@@ -67,7 +74,7 @@ CLIENT_NOSTR_SECRET_KEY=
 ```
 
 ```bash
-cargo run -- client <server-pub-key-hex>
+cargo run -p context-btc-client -- <server-pub-key-hex>
 ```
 
 ## Architecture
