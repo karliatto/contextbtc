@@ -35,6 +35,7 @@ not an error (useful for systemd/Docker where variables are injected directly).
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
 | `SERVER_NOSTR_SECRET_KEY` | No | ephemeral | 64-char hex or `nsec...` key. If unset, a temporary key is generated on each start (testing only, not for production). |
+| `NOSTR_RELAY_URLS` | No | `ws://localhost:10547` | Comma-separated relay websocket URLs, used by both server and client. |
 | `BITCOIN_RPC_URL` | No | `http://127.0.0.1:8332` | Bitcoin Core JSON-RPC endpoint. |
 | `BITCOIN_RPC_USER` | Yes | — | JSON-RPC username. |
 | `BITCOIN_RPC_PASSWORD` | Yes | — | JSON-RPC password. |

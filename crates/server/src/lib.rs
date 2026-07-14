@@ -7,6 +7,24 @@ use rmcp::ServiceExt;
 
 use tools::BitcoinRpcNostrServer;
 
+/// Nostr relay URLs to connect to, read from the comma-separated
+/// `NOSTR_RELAY_URLS` env var. Falls back to a local relay when unset/empty.
+fn relay_urls_from_env() -> Vec<String> {
+    let urls: Vec<String> = std::env::var("NOSTR_RELAY_URLS")
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect();
+
+    if urls.is_empty() {
+        vec!["ws://localhost:10547".to_string()]
+    } else {
+        urls
+    }
+}
+
 /// Run the ContextBTC MCP server until it is shut down.
 pub async fn run() -> anyhow::Result<()> {
     let signer = match std::env::var("SERVER_NOSTR_SECRET_KEY") {
@@ -31,14 +49,12 @@ pub async fn run() -> anyhow::Result<()> {
         .map(String::from)
         .collect();
 
+    let relay_urls = relay_urls_from_env();
+
     let transport = NostrServerTransport::new(
         signer,
         NostrServerTransportConfig::default()
-            .with_relay_urls(vec![
-                "ws://localhost:10547".to_string(),
-                // "wss://relay.contextvm.org".to_string(),
-                // "wss://nos.lol".to_string(),
-            ])
+            .with_relay_urls(relay_urls)
             .with_announced_server(false)
             .with_allowed_public_keys(allowed),
     )
