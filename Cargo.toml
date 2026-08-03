@@ -1,10 +1,26 @@
 [workspace]
 resolver = "2"
-members = ["crates/server", "crates/client", "crates/e2e"]
+members = [
+    "crates/server",
+    "crates/client",
+    "crates/e2e",
+]
+
+# `crates/bitcoincore-rpc-client` is a drop-in replacement for the crates.io
+# `bitcoincore-rpc`: same API, but each call travels as an MCP `tools/call` over
+# Nostr instead of HTTP JSON-RPC. Patching it in means unmodified crates.io
+# crates that build on `bitcoincore-rpc` — notably `bdk_bitcoind_rpc` — sync
+# against a contextbtc server without knowing it.
+[patch.crates-io]
+bitcoincore-rpc = { path = "crates/bitcoincore-rpc-client" }
+bitcoincore-rpc-json = { path = "crates/bitcoincore-rpc-json" }
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
+# Applies to the workspace members only. The vendored `bitcoincore-rpc*` crates
+# under `crates/` are not members and stay under their upstream CC0-1.0.
+license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 anyhow = "1.0.103"

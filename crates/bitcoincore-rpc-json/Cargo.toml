@@ -1,0 +1,24 @@
+# Vendored from rust-bitcoin/rust-bitcoincore-rpc at v0.19.0 (CC0-1.0). Only
+# this manifest was adapted for the workspace; `src/` is upstream as-is, since
+# these are just the JSON request/response types and are transport-agnostic.
+[package]
+name = "bitcoincore-rpc-json"
+# Kept in lockstep with the `bitcoincore-rpc` version this repo vendors.
+version = "0.19.0"
+edition = "2024"
+license = "CC0-1.0"
+publish = false
+
+[lib]
+name = "bitcoincore_rpc_json"
+path = "src/lib.rs"
+
+[features]
+default = ["rand"]
+rand = ["bitcoin/rand-std"]
+
+[dependencies]
+serde = { version = "1", features = [ "derive" ] }
+serde_json = "1"
+
+bitcoin = { version = "0.32.0", features = ["serde"] }
