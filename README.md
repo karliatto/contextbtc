@@ -48,6 +48,20 @@ This is a Cargo workspace with two binary crates:
 - `crates/server` — the ContextBTC MCP server (`contextbtc-server`).
 - `crates/client` — an example client (`contextbtc-client`).
 
+Alongside them sit two library crates that are not workspace members. They are
+pulled in through `[patch.crates-io]` in the root `Cargo.toml`, which swaps them
+in wherever a dependency asks for `bitcoincore-rpc`:
+
+- `crates/bitcoincore-rpc-client` — publishes the crate name `bitcoincore-rpc`
+  and keeps the upstream `RpcApi` surface, but sends each call as an MCP
+  `tools/call` over Nostr instead of HTTP JSON-RPC.
+- `crates/bitcoincore-rpc-json` — the matching `bitcoincore-rpc-json` types.
+
+The point of the patch is that unmodified crates.io libraries built on
+`bitcoincore-rpc` — `bdk_bitcoind_rpc`, say — end up talking to a ContextBTC
+server without any awareness of the transport. They stay out of `members` so
+`cargo fmt`/`cargo clippy --workspace` don't lint vendored upstream code.
+
 ## Running server
 
 With a `.env` file in place:
@@ -84,13 +98,20 @@ cargo run -p contextbtc-client -- <server-pub-key-hex>
 cargo test --workspace
 ```
 
-Most tests are pure unit tests. The end-to-end test in `crates/e2e` exercises the
-full path — it starts a local Nostr relay (`nak serve`), a regtest `bitcoind`
-(managed by [`corepc-node`](https://github.com/rust-bitcoin/corepc)), runs the
-real server against that node, then runs the real client and checks it receives
-live regtest data.
+Most tests are pure unit tests. The end-to-end tests in `crates/e2e` exercise the
+full path. Both start the same stack (`crates/e2e/tests/harness/`): a local Nostr
+relay (`nak serve`), a regtest `bitcoind` (managed by
+[`corepc-node`](https://github.com/rust-bitcoin/corepc)), and the real server
+against that node.
 
-That test needs `bitcoind` and `nak` available. The dev shell provides both, so
+- `tests/e2e.rs` runs the real client and checks it receives live regtest data.
+- `tests/filter_iter.rs` syncs a descriptor with BDK's compact block filter
+  (BIP157/158) `FilterIter`, over the patched `bitcoincore-rpc` — so the whole
+  sync travels over MCP/Nostr. It mines a block paying a descriptor address and
+  asserts that block was matched by its filter and its output reached the graph.
+  Needs `bitcoind` started with `-blockfilterindex=1`, which the harness does.
+
+Those tests need `bitcoind` and `nak` available. The dev shell provides both, so
 the simplest way to run the whole suite is:
 
 ```bash
@@ -182,3 +203,17 @@ This project bridges two distinct protocol layers:
 
 - **Client ⟷ ContexVM MCP server:** MCP over Nostr.
 - **ContexVM MCP server ⟷ bitcoind:** JSON-RPC over HTTP.
+
+## License
+
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
+[MIT license](LICENSE-MIT) at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in this project by you, as defined in the Apache-2.0 license,
+shall be dual licensed as above, without any additional terms or conditions.
+
+`crates/bitcoincore-rpc-client` and `crates/bitcoincore-rpc-json` are vendored
+from [rust-bitcoincore-rpc](https://github.com/rust-bitcoin/rust-bitcoincore-rpc)
+v0.19.0 and remain under its original CC0-1.0 dedication. Their per-file
+headers are kept as-is.
