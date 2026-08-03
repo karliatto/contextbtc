@@ -2,6 +2,7 @@
 name = "contextbtc-e2e"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 publish = false
 
 # No runtime code — this crate exists only to host the integration tests in
@@ -11,11 +12,30 @@ path = "src/lib.rs"
 
 [dev-dependencies]
 anyhow.workspace = true
+
 # Spawns and manages a regtest bitcoind for the duration of a test. Finds the
 # binary via BITCOIND_EXE / PATH (no `download` feature — the devShell and CI
 # provide bitcoind).
 corepc-node = "0.12.0"
+
 # Builds and locates the workspace binaries (server, client) from within a test.
 escargot = "0.5"
+
 # Bounds how long we wait on the client subprocess so a hang fails fast.
 wait-timeout = "0.2"
+
+# Used to poll bitcoind for RPCs corepc's v17 client doesn't cover.
+serde_json.workspace = true
+
+# BDK, unmodified from crates.io. `bdk_bitcoind_rpc` is built against the
+# `bitcoincore-rpc` this workspace patches in (see the root Cargo.toml), so its
+# `FilterIter` reaches the node over MCP-over-Nostr rather than HTTP JSON-RPC.
+bdk_bitcoind_rpc = "0.22.0"
+bdk_chain = "0.23.3"
+
+# Resolves to `crates/bitcoincore-rpc-client` via the root `[patch.crates-io]`.
+bitcoincore-rpc = "0.19.0"
+
+# `bitcoincore_rpc` logs each tools/call through `log`; this makes those visible
+# under RUST_LOG.
+env_logger = "0.11"

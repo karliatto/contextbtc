@@ -1,0 +1,39 @@
+# Named and versioned to match the crates.io `bitcoincore-rpc` it stands in for,
+# so the workspace can swap it in via `[patch.crates-io]` (see the root
+# Cargo.toml) and have crates like `bdk_bitcoind_rpc` talk to a node over
+# MCP-over-Nostr instead of HTTP JSON-RPC.
+#
+# Vendored from rust-bitcoin/rust-bitcoincore-rpc at v0.19.0 (CC0-1.0), with the
+# HTTP JSON-RPC transport in `src/client.rs` replaced by MCP-over-Nostr. The
+# per-file CC0 headers upstream ship with are kept as provenance markers.
+[package]
+name = "bitcoincore-rpc"
+version = "0.19.0"
+edition = "2024"
+license = "CC0-1.0"
+publish = false
+
+[lib]
+name = "bitcoincore_rpc"
+path = "src/lib.rs"
+
+[features]
+default = ["rand"]
+rand = ["bitcoincore-rpc-json/rand"]
+
+[dependencies]
+bitcoincore-rpc-json = { version = "0.19.0", path = "../bitcoincore-rpc-json" }
+
+log = "0.4.5"
+# Required for API compatibility with downstream crates (e.g. bdk_bitcoind_rpc)
+# that match on `Error::JsonRpc` and reference `bitcoincore_rpc::jsonrpc`.
+jsonrpc = { version = "0.18.0", features = ["minreq_http"] }
+
+# MCP-over-Nostr transport (ContextVM). The `rmcp` feature re-exports `rmcp`,
+# which we use via `contextvm_sdk::rmcp` to avoid a version mismatch.
+contextvm-sdk.workspace = true
+tokio = { version = "1", features = ["rt-multi-thread"] }
+
+# Used for deserialization of JSON.
+serde = "1"
+serde_json = "1"
